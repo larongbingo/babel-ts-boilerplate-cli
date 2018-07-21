@@ -2,7 +2,6 @@
   "name": "babel_typescript_boilerplate_cli",
   "version": "0.0.2",
   "description": "Installs the necessary modules and the starting files",
-  "main": "index.js",
   "author": "rcyapagulayan",
   "license": "MIT",
   "dependencies": {
