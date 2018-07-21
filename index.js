@@ -1,0 +1,364 @@
+#!/usr/bin/env node
+
+/**
+ * package.json
+ *  name
+ *  description
+ *  author
+ *  version - 0.0.1
+ *  license - AGPL-3.0
+ * 
+ * modules to install:
+ * devDep
+ * @babel/cli
+ * @babel/core
+ * @babel/plugin-proposal-class-properties
+ * @babel/plugin-proposal-object-rest-spread
+ * @babel/preset-env
+ * @babel/preset-typescript
+ * @types/node
+ * module-alias
+ * rimraf
+ * typescript 
+ * chalk
+ * 
+ * files to add:
+ * ./tsconfig.json
+ * ./.babelrc
+ * ./src/index.ts
+ * ./scripts/build.js
+ */
+
+const figlet = require("figlet");
+const chalk = require("chalk");
+const inquirer = require("inquirer");
+const program = require("commander");
+const touch = require("touch");
+const fs = require("fs");
+const path = require("path");
+const Promise = require("bluebird");
+const child_process = require("child_process");
+
+let directory = null;
+
+(async function() {
+    Header();
+
+    program
+        .version("0.0.1", "-v, --version")
+        .arguments("<dir>")
+        .action(function(dir) {
+            if(!dir.length) {
+                console.log(
+                    chalk.red("No given directory")
+                );
+                process.exit(1);
+            }
+
+            directory = dir;
+        })
+        .parse(process.argv);
+
+    console.log(directory);
+
+    // Check if the folder exists
+    if(fs.existsSync(path.join(directory))) {
+        // Check if the folder is empty
+        fs.readdir(path.join(directory), function(err, files) {
+            if(err) {
+                console.log(
+                    chalk.red("Error occurred during checking of the directory")
+                );
+                process.exit(2);
+            }
+            else {
+                if(files.length) {
+                    console.log(
+                        chalk.red("Directory contains files")
+                    );
+                    process.exit(3);
+                }
+            }
+        })
+    }
+    else {
+        fs.mkdirSync(path.join(directory));
+    }
+
+    const details = await AskQuestions();
+
+    console.log("Creating file called 'package.json'");
+    touch(path.join(directory, "package.json"), (err) => {
+        if(err) {
+            console.log(
+                chalk.red("Error occurred during the creation of package.json")
+            );
+            console.log(err.stack);
+            process.exit(4);
+        }
+    }).then(() => {
+        let str = JSON.stringify({
+            name: details.name,
+            version: (details.p_version.length) ? details.p_version : "0.0.1",
+            description: details.p_description,
+            author: details.author,
+            license: details.license,
+            scripts: {
+                build: "node ./scripts/build.js"
+            }
+        });
+
+        console.log("Writing project config to 'package.json'");
+        fs.writeFile(path.join(directory, "package.json"), str, (err) => {
+            if(err) {
+                console.log(
+                    chalk.red("Error occurred during the writing at package.json")
+                );
+                console.log(err);
+                process.exit(5);
+            }
+        });
+    })
+    .then(() => {
+        console.log("Creating file called 'tsconfig.json'");
+        return touch(path.join(directory, "tsconfig.json"), (err) => {
+            if(err) {
+                console.log(
+                    chalk.red("Error occurred during the creation of tsconfig.json")
+                );
+                process.exit(100);
+            }
+        })
+        .then(() => {
+            let str = `{
+    compilerOptions: {
+        target: "esnext",
+        module: "commonjs",
+        lib: ["es2017", "esnext"],
+        declaration: true,
+        outDir: "./build",
+        removeComments: true,
+        strictNullChecks: false,
+        moduleResolution: "node",
+        baseUrl: "./",
+        paths: {},
+        allowSyntheticDefaultImports: true,
+        esModuleInterop: true,
+        experimentalDecorators: true,
+        emitDecoratorMetadata: true
+    },
+    include: [
+        "./src/**/*"
+    ]
+}`
+
+            console.log("Writing Typescript Config to 'tsconfig.json'");
+            fs.writeFile(path.join(directory, "tsconfig.json"), str, (err) => {
+                if(err) {
+                    console.log(
+                        chalk.red("Error occurred during the writing at tsconfig.json")
+                    );
+                    process.exit(101);
+                }
+            });
+        })
+    })
+    .then(() => {
+        console.log("Creating file called .babelrc");
+        return touch(path.join(directory, ".babelrc"), err => {
+            if(err) {
+                console.log(
+                    chalk.red("Error occurred during the creation of .babelrc")
+                );
+                process.exit(200);
+            }
+        })
+        .then(() => {
+            let str = `{
+    "presets": [
+        ["@babel/env", {
+            "targets": {
+                "node": "current"
+            },
+            "debug": true
+        }],
+        "@babel/typescript"
+    ],
+    "plugins": [
+        "@babel/plugin-proposal-object-rest-spread",
+        "@babel/plugin-proposal-class-properties"
+    ],
+    "ignore": [
+        "**/*.d.ts"
+    ]
+}`
+
+            console.log("Writing Babel Config at .babelrc");
+            fs.writeFile(path.join(directory, ".babelrc"), str, err => {
+                if(err) {
+                    console.log(
+                        chalk.red("Error occurred during the writing at .babelrc")
+                    );
+                    process.exit(101);
+                }
+            })
+        })
+    })
+    .then(() => {
+        let str = `
+const child_process = require("child_process");
+const path          = require("path");
+const Chalk         = require("chalk");
+
+/**
+ * Binary Paths
+ */
+const rimraf_path   = path.join("node_modules", ".bin", "rimraf");
+const tsc_path      = path.join("node_modules", ".bin", "tsc");
+const babel_path    = path.join("node_modules", ".bin", "babel");
+
+/**
+ * Commands
+ */
+let tsc_emitDeclarationOnly     = tsc_path + " --emitDeclarationOnly";
+let tsc_typeCheckOnly           = tsc_path + " --noEmit";
+let babel_transpile             = babel_path + " ./src --out-dir build --extensions \\\".ts\\\"";
+
+console.log("Deleting ./build")
+child_process.exec(rimraf_path + " ./build", (err, stdout, stderr) => {
+    if(err) {
+        console.log(stderr);
+        console.log(stdout);
+        return;
+    }
+
+    console.log("Type Checking");
+    child_process.exec(tsc_typeCheckOnly, (err, stdout, stderr) => {
+        if(err) {
+            console.log(stderr);
+            console.log(stdout);
+            return;
+        }
+
+        console.log("Emitting Declaration Files");
+        child_process.exec(tsc_emitDeclarationOnly, (err, stdout, stderr) => {
+            if(err) {
+                console.log(stderr);
+                console.log(stdout);
+                return;
+            }
+
+            console.log("Transpiling");
+            child_process.exec(babel_transpile, (err, stdout, stderr) => {
+                if(err) {
+                    console.log(stderr);
+                    console.log(stdout);
+                    return;
+                }
+    
+                console.log(
+                    Chalk.green("Build Complete")
+                );
+            });
+        });
+    });
+});`;
+
+    console.log("Creating ./scripts folder")
+    fs.mkdir(path.join(directory, "scripts"), (err) => {
+        if(err) {
+            console.log("Error occurred during the creation of scripts folder");
+            process.exit(30);
+        }
+
+        console.log("Creating build.js");
+        touch(path.join(directory, "scripts", "build.js"), (err) => {
+            if(err) {
+                console.log("Error occurred during the creation of build.js");
+                process.exit(29);
+            }
+
+            console.log("Writing build script at build.js");
+        })
+        .then(() => fs.writeFile(path.join(directory, "scripts", "build.js"), str, (err) => {
+            if(err) {
+                console.log("Error occurred during writing at build.js");
+                process.exit(28);
+            }
+        }))
+    })
+    })
+    .then(() => {
+        let cd = "cd " + path.join(directory);
+        console.log(`
+Installing the following modules:
+    * @babel/cli
+    * @babel/core
+    * @babel/plugin-proposal-class-properties
+    * @babel/plugin-proposal-object-rest-spread
+    * @babel/preset-env
+    * @babel/preset-typescript
+    * @types/node
+    * module-alias
+    * rimraf
+    * typescript 
+    * chalk
+        `);
+
+        child_process.exec(cd + " && " + "npm install @babel/core @babel/cli @babel/plugin-proposal-class-properties" + 
+        " @babel/plugin-proposal-object-rest-spread @babel/preset-env @babel/preset-typescript @types/node module-alias " + 
+        "typescript rimraf --save-dev", (err, stdout, stderr) => {
+            if(err) {
+                console.log(stderr);
+                console.log(stdout);
+                process.exit(6);
+            }
+        });
+    })
+    .catch(err => console.log(err));
+
+})();
+
+async function AskQuestions() {
+    const questions = [
+        {
+            name: "name",
+            type: "input",
+            message: "Input the project name/title:",
+            validate: (val) => {
+                if(val.length) return true;
+                return false;
+            }
+        },
+        {
+            name: "p_description",
+            type: "input",
+            message: "Input a short description of the project (\"\"):"
+        },
+        {
+            name: "author",
+            type: "input",
+            message: "Input the author of the project (\"\"):"
+        },
+        {
+            name: "p_version",
+            type: "input",
+            message: "Input the version of the project (0.0.1):"
+        },
+        {
+            name: "license",
+            type: "input",
+            message: "Input the licensing of the project (ISC):"
+        }
+    ];
+    
+    return await inquirer.prompt(questions);
+}
+
+function Header() {
+    console.log(
+        chalk.yellow(
+            figlet.textSync("Babel\nTS", { horizontalLayout: "default" })
+        )
+    );
+}
