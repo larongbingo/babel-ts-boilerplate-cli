@@ -289,6 +289,28 @@ child_process.exec(rimraf_path + " ./build", (err, stdout, stderr) => {
     })
     })
     .then(() => {
+        return fs.mkdir(path.join(directory, "src"), (err) => {
+            if(err) {
+                console.log("Error occurred during the creation of ./src folder");
+                process.exit(50);
+            }
+        })
+    })
+    .then(() => {
+        return touch(path.join(directory, "src", "index.ts"), (err) => {
+            if(err) {
+                console.log("Error occurred during the creation of index.ts");
+                process.exit(51);
+            }
+        })
+        .then(() => fs.writeFile(path.join(directory, "src", "index.ts"), "console.log('Hello, world');", (err) => {
+            if(err) {
+                console.log("Error occurred during writing at index.ts");
+                process.exit(52);
+            }
+        }));
+    })
+    .then(() => {
         let cd = "cd " + path.join(directory);
         console.log(`
 Installing the following modules:
