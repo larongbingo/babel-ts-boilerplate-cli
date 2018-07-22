@@ -297,11 +297,14 @@ child_process.exec(rimraf_path + " ./build", (err, stdout, stderr) => {
         })
     })
     .then(() => {
+        console.log("Creating index.ts");
         return touch(path.join(directory, "src", "index.ts"), (err) => {
             if(err) {
                 console.log("Error occurred during the creation of index.ts");
                 process.exit(51);
             }
+
+            console.log("Writing hello world at index.ts");
         })
         .then(() => fs.writeFile(path.join(directory, "src", "index.ts"), "console.log('Hello, world');", (err) => {
             if(err) {
