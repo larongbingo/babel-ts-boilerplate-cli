@@ -2,7 +2,11 @@
 
 ## What's dis?
 Its a pathetic attempt to create a CLI to generate boilerplate for
-Babel and Typescript.
+Babel and Typescript. It follows the steps or the boilerplate presented
+by Microsoft's [Babel - Typescript Boilerplate](https://github.com/Microsoft/TypeScript-Babel-Starter)
+
+
+If there's any problem with the CLI or thingy, just go them. cuz imma n00bz
 
 ## How to use?
     babel-ts <dir>
